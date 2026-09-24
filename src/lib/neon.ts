@@ -117,39 +117,68 @@ class QueryBuilder {
     }
   }
 
-  async insert(payload: Record<string, unknown> | Record<string, unknown>[]) {
-    const body = Array.isArray(payload) ? payload[0] : payload
-    const endpoint = this._table === 'products' ? '/products' : '/query?table=' + this._table
-    try {
-      const data = await request<unknown>(endpoint, { method: 'POST', body: JSON.stringify(body) })
-      return { data, error: null }
-    } catch(e) { return { data: null, error: { message: (e as Error).message } } }
+  private _method: 'GET' | 'POST' | 'PATCH' | 'DELETE' = 'GET'
+  private _payload: any = null
+
+  insert(payload: Record<string, unknown> | Record<string, unknown>[]) {
+    this._method = 'POST'
+    this._payload = Array.isArray(payload) ? payload[0] : payload
+    return this
   }
 
-  async update(payload: Record<string, unknown>) {
-    // requires eq filter to have id
-    const idFilter = this._filters.find(f => f.startsWith('id='))
-    const id = idFilter ? idFilter.split('=')[1] : null
-    const endpoint = this._table === 'products' ? '/products' : '/query?table=' + this._table
-    try {
-      const data = await request<unknown>(endpoint, { method: 'PATCH', body: JSON.stringify({ id, ...payload }) })
-      return { data, error: null }
-    } catch(e) { return { data: null, error: { message: (e as Error).message } } }
+  update(payload: Record<string, unknown>) {
+    this._method = 'PATCH'
+    this._payload = payload
+    return this
   }
 
-  async delete() {
-    const idFilter = this._filters.find(f => f.startsWith('id='))
-    const id = idFilter ? idFilter.split('=')[1] : null
-    const endpoint = this._table === 'products' ? '/products' : '/query?table=' + this._table
-    try {
-      await request<unknown>(endpoint, { method: 'DELETE', body: JSON.stringify({ id }) })
-      return { data: null, error: null }
-    } catch(e) { return { data: null, error: { message: (e as Error).message } } }
+  delete() {
+    this._method = 'DELETE'
+    return this
   }
 
-  // Chaining helpers
+  async _execute() {
+    const dedicated = ['products']
+    let endpoint = dedicated.includes(this._table) ? '/' + this._table : '/query?table=' + this._table
+
+    if (this._method === 'GET') {
+      const params = new URLSearchParams()
+      if (!dedicated.includes(this._table)) params.set('table', this._table)
+      this._filters.forEach(f => { const [k,v] = f.split('='); params.set(k, v) })
+      if (this._order) params.set('order', this._order)
+      if (this._limit) params.set('limit', String(this._limit))
+      
+      const qs = params.toString()
+      const base = this._table === 'products' ? '/products' : '/query'
+      
+      try {
+        const data = await request<unknown[]>(`${base}${qs ? '?' + qs : ''}`)
+        if (this._single) return { data: Array.isArray(data) ? data[0] ?? null : data, error: null }
+        return { data, error: null, count: Array.isArray(data) ? data.length : 0 }
+      } catch (e) {
+        return { data: null, error: { message: (e as Error).message } }
+      }
+    } else {
+      // POST, PATCH, DELETE
+      try {
+        const idFilter = this._filters.find(f => f.startsWith('id='))
+        const id = idFilter ? idFilter.split('=')[1] : null
+        
+        let body = this._payload
+        if (this._method === 'PATCH' || this._method === 'DELETE') {
+           body = { ...body, id }
+        }
+
+        const data = await request<unknown>(endpoint, { method: this._method, body: JSON.stringify(body) })
+        return { data, error: null }
+      } catch (e) {
+        return { data: null, error: { message: (e as Error).message } }
+      }
+    }
+  }
+
   then(resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) {
-    return this.get().then(resolve, reject)
+    return this._execute().then(resolve, reject)
   }
 }
 

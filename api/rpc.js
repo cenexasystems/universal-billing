@@ -82,6 +82,34 @@ export default async function handler(req, res) {
       return res.status(200).json(result.data);
     }
 
+    if (fn === 'get_expense_summary_metrics') {
+      const [result] = await sql`SELECT public.get_expense_summary_metrics() as data`;
+      return res.status(200).json(result.data);
+    }
+
+    if (fn === 'create_advance_order') {
+      const [result] = await sql`
+        SELECT public.create_advance_order(
+          ${args.p_customer_name}, ${args.p_phone}, ${args.p_address}, ${args.p_product_name},
+          ${args.p_category}, ${args.p_description}, ${args.p_total_amount},
+          ${args.p_deposit_amount}, ${args.p_expected_delivery_date}, ${args.p_remarks},
+          ${args.p_payment_method}, ${args.p_created_by_name}, ${JSON.stringify(args.p_products||[])}::jsonb
+        ) as data
+      `;
+      return res.status(200).json(result.data);
+    }
+
+    if (fn === 'complete_advance_order_v2') {
+      const [result] = await sql`
+        SELECT public.complete_advance_order_v2(
+          ${args.p_order_id}, ${args.p_payment_method}, ${args.p_final_amount},
+          ${args.p_coupon_code}, ${args.p_coupon_percentage}, ${args.p_manual_discount},
+          ${args.p_remarks}
+        ) as data
+      `;
+      return res.status(200).json(result.data);
+    }
+
     return res.status(404).json({ error: 'RPC function not mapped: ' + fn });
   } catch (e) {
     return res.status(500).json({ error: e.message });
