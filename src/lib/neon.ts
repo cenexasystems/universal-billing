@@ -89,6 +89,10 @@ class QueryBuilder {
   limit(n: number) { this._limit = n; return this }
   range(from: number, to: number) { this._limit = to - from + 1; return this }
   single() { this._single = true; return this }
+  maybeSingle() { this._single = true; return this }
+  ilike(col: string, val: unknown) { this._filters.push(`${col}=ilike.${encodeURIComponent(String(val))}`); return this }
+  in(col: string, vals: unknown[]) { this._filters.push(`${col}=in.(${vals.map(v => encodeURIComponent(String(v))).join(',')})`); return this }
+  or(val: string) { this._filters.push(`or=${encodeURIComponent(val)}`); return this }
 
   private _endpoint() {
     // If we have a dedicated route, use it. Otherwise use generic query.js
@@ -138,7 +142,7 @@ class QueryBuilder {
   }
 
   async _execute() {
-    const dedicated = ['products']
+    const dedicated: string[] = []
     let endpoint = dedicated.includes(this._table) ? '/' + this._table : '/query?table=' + this._table
 
     if (this._method === 'GET') {

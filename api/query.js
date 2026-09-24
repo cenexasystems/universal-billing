@@ -21,13 +21,57 @@ export default async function handler(req, res) {
 
       for (const [key, val] of Object.entries(req.query)) {
         if (key === 'table' || key === 'order' || key === 'limit') continue;
+
+        if (key === 'or') {
+          // val: "col1.ilike.%A%,col2.in.(1,2)"
+          const conds = val.split(',');
+          const orClauses = [];
+          for (const cond of conds) {
+            const firstDot = cond.indexOf('.');
+            const secondDot = cond.indexOf('.', firstDot + 1);
+            if (firstDot > 0 && secondDot > firstDot) {
+              const cCol = cond.substring(0, firstDot);
+              const cOp = cond.substring(firstDot + 1, secondDot);
+              const cVal = cond.substring(secondDot + 1);
+              if (cOp === 'ilike') {
+                orClauses.push(`${cCol} ILIKE $${i++}`);
+                values.push(cVal);
+              } else if (cOp === 'in') {
+                const inStr = cVal.startsWith('(') ? cVal.slice(1, -1) : cVal;
+                const inArr = inStr.split(',').map(s => s.replace(/^"|"$/g, ''));
+                const inPlaceholders = inArr.map(() => `$${i++}`).join(',');
+                orClauses.push(`${cCol} IN (${inPlaceholders})`);
+                values.push(...inArr);
+              } else if (cOp === 'eq') {
+                orClauses.push(`${cCol} = $${i++}`);
+                values.push(cVal);
+              }
+            }
+          }
+          if (orClauses.length > 0) {
+            queryStr += ` AND (${orClauses.join(' OR ')})`;
+          }
+          continue;
+        }
         
+        if (typeof val !== 'string') continue;
+
         if (val.startsWith('eq.')) {
           queryStr += ` AND ${key} = $${i++}`;
           values.push(val.slice(3));
         } else if (val.startsWith('neq.')) {
           queryStr += ` AND ${key} != $${i++}`;
           values.push(val.slice(4));
+        } else if (val.startsWith('ilike.')) {
+          queryStr += ` AND ${key} ILIKE $${i++}`;
+          values.push(val.slice(6));
+        } else if (val.startsWith('in.')) {
+          const inStr = val.slice(3);
+          const cleanStr = inStr.startsWith('(') ? inStr.slice(1, -1) : inStr;
+          const inArr = cleanStr.split(',').map(s => s.replace(/^"|"$/g, ''));
+          const inPlaceholders = inArr.map(() => `$${i++}`).join(',');
+          queryStr += ` AND ${key} IN (${inPlaceholders})`;
+          values.push(...inArr);
         } else {
           queryStr += ` AND ${key} = $${i++}`;
           values.push(val);
@@ -83,7 +127,7 @@ export default async function handler(req, res) {
       const { id } = req.body;
       
       // Some tables use soft delete (is_active)
-      if (['categories', 'product_variants', 'coupons', 'barcode_registry'].includes(table)) {
+      if (['products', 'categories', 'product_variants', 'coupons', 'barcode_registry'].includes(table)) {
         await sql.unsafe(`UPDATE public.${table} SET is_active = false, updated_at = NOW() WHERE id = $1`, [id]);
       } else {
         await sql.unsafe(`DELETE FROM public.${table} WHERE id = $1`, [id]);
