@@ -32,8 +32,8 @@ export default async function handler(req, res) {
           ${JSON.stringify(args.p_split_details||{})}::jsonb,
           ${args.p_total_gst||0},
           ${args.p_gst_enabled||false},
-          ${args.p_remarks||null},
-          ${args.p_reference_number||null},
+          ${args.p_remarks||''},
+          ${args.p_reference_number||''},
           ${args.p_billing_date||null}
         ) as data
       `;
@@ -92,7 +92,7 @@ export default async function handler(req, res) {
         SELECT public.create_advance_order(
           ${args.p_customer_name}, ${args.p_phone}, ${args.p_address}, ${args.p_product_name},
           ${args.p_category}, ${args.p_description}, ${args.p_total_amount},
-          ${args.p_deposit_amount}, ${args.p_expected_delivery_date}, ${args.p_remarks},
+          ${args.p_deposit_amount}, ${args.p_expected_delivery_date}, ${args.p_remarks||''},
           ${args.p_payment_method}, ${args.p_created_by_name}, ${JSON.stringify(args.p_products||[])}::jsonb
         ) as data
       `;
@@ -103,8 +103,8 @@ export default async function handler(req, res) {
       const [result] = await sql`
         SELECT public.complete_advance_order_v2(
           ${args.p_order_id}, ${args.p_payment_method}, ${args.p_final_amount},
-          ${args.p_coupon_code}, ${args.p_coupon_percentage}, ${args.p_manual_discount},
-          ${args.p_remarks}
+          ${args.p_coupon_code||null}, ${args.p_coupon_percentage||0}, ${args.p_manual_discount||0},
+          ${args.p_remarks||''}
         ) as data
       `;
       return res.status(200).json(result.data);
