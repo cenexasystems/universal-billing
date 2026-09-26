@@ -110,6 +110,75 @@ export default async function handler(req, res) {
       return res.status(200).json(result.data);
     }
 
+    if (fn === 'create_barcode_and_receive_stock') {
+      const [result] = await sql`
+        SELECT public.create_barcode_and_receive_stock(
+          ${args.p_product_id},
+          ${args.p_variant_id||null},
+          ${args.p_quantity_received||0},
+          ${args.p_unit_cost||null},
+          ${args.p_created_by_name||'Admin'},
+          ${args.p_custom_barcode||null},
+          ${args.p_note||''}
+        ) as data
+      `;
+      return res.status(200).json(result.data);
+    }
+
+    if (fn === 'update_advance_order_status') {
+      const [result] = await sql`
+        SELECT public.update_advance_order_status(
+          ${args.p_order_id}, ${args.p_status}, ${args.p_remarks||''}
+        ) as data
+      `;
+      return res.status(200).json(result.data);
+    }
+
+    if (fn === 'add_advance_order_event') {
+      const [result] = await sql`
+        SELECT public.add_advance_order_event(
+          ${args.p_order_id}, ${args.p_event_type}, ${args.p_label}, ${args.p_remarks||''}
+        ) as data
+      `;
+      return res.status(200).json(result.data);
+    }
+
+    if (fn === 'get_public_invoice_by_number') {
+      const [result] = await sql`
+        SELECT public.get_public_invoice_by_number(
+          ${args.p_invoice_no}
+        ) as data
+      `;
+      return res.status(200).json(result.data);
+    }
+
+    if (fn === 'create_order_without_stock') {
+      const [result] = await sql`
+        SELECT public.create_order_without_stock(
+          ${args.p_customer_name||'Customer'},
+          ${args.p_phone||''},
+          ${args.p_address||''},
+          ${JSON.stringify(args.p_items||[])}::jsonb,
+          ${args.p_shipping||0},
+          ${args.p_status||'completed'},
+          ${args.p_order_mode||'offline'},
+          ${args.p_order_type||'pos_sale'},
+          ${args.p_delivery_charge||0},
+          ${args.p_discount_amount||0},
+          ${args.p_manual_discount_amount||0},
+          ${args.p_manual_discount_type||'flat'},
+          ${args.p_manual_discount_value||0},
+          ${args.p_coupon_code||null},
+          ${args.p_coupon_percentage||0},
+          ${args.p_total_gst||0},
+          ${args.p_gst_enabled||false},
+          ${args.p_payment_method||'cash'},
+          ${JSON.stringify(args.p_split_details||{})}::jsonb
+        ) as data
+      `;
+      return res.status(200).json(result.data);
+    }
+
     return res.status(404).json({ error: 'RPC function not mapped: ' + fn });
   } catch (e) {
     return res.status(500).json({ error: e.message });
