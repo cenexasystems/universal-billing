@@ -56,6 +56,11 @@ export const neonClient = {
       if (!stored) return { data: { user: null } }
       return { data: { user: JSON.parse(stored) } }
     },
+    async getSession() {
+      const stored = localStorage.getItem('ul_session')
+      if (!stored) return { data: { session: null } }
+      return { data: { session: { user: JSON.parse(stored) } } }
+    },
     async signOut() {
       localStorage.removeItem('ul_session')
       return { error: null }
