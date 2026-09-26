@@ -111,7 +111,18 @@ export default async function handler(req, res) {
     }
     
     if (req.method === 'PATCH') {
-      const { id, ...updates } = req.body;
+      const { id, ...rawUpdates } = req.body;
+
+      // Generated/computed columns that must never be written to directly
+      const GENERATED_COLS = new Set(['remaining_balance']);
+      const updates = Object.fromEntries(
+        Object.entries(rawUpdates).filter(([k]) => !GENERATED_COLS.has(k))
+      );
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(200).json({ id });
+      }
+
       const keys = Object.keys(updates);
       const sets = keys.map((k, i) => `${k} = $${i+2}`).join(', ');
       const values = Object.values(updates);

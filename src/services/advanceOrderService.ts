@@ -85,6 +85,21 @@ const saveLocalPayments = (payments: AdvancePayment[]) => {
   } catch { /* ignore */ }
 }
 
+const normalizeDate = (val: unknown): string => {
+  if (!val) return ''
+  if (val instanceof Date) {
+    // pg Date object → "YYYY-MM-DD"
+    const y = val.getUTCFullYear()
+    const m = String(val.getUTCMonth() + 1).padStart(2, '0')
+    const d = String(val.getUTCDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+  const s = String(val)
+  // Already ISO timestamp? Take just the date part
+  if (s.length > 10 && s[10] === 'T') return s.slice(0, 10)
+  return s
+}
+
 const normalizeOrder = (row: Record<string, unknown>): AdvanceOrder => ({
   ...row,
   id: String(row.id || ''),
@@ -99,7 +114,7 @@ const normalizeOrder = (row: Record<string, unknown>): AdvanceOrder => ({
   total_amount: Number(row.total_amount || 0),
   deposit_amount: Number(row.deposit_amount || 0),
   remaining_balance: Number(row.remaining_balance ?? (Number(row.total_amount || 0) - Number(row.deposit_amount || 0))),
-  expected_delivery_date: String(row.expected_delivery_date || ''),
+  expected_delivery_date: normalizeDate(row.expected_delivery_date),
   status: String(row.status || 'pending_deposit') as AdvanceStatus,
   remarks: String(row.remarks || ''),
   reference_number: String(row.reference_number || ''),
