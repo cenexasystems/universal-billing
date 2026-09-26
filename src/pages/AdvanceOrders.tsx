@@ -310,7 +310,7 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
                   <td className="px-4 py-3.5 align-middle whitespace-nowrap">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
                       <CalendarDays size={14} className="text-gray-400 shrink-0" />
-                      <span>{new Date(`${order.expected_delivery_date}T00:00:00`).toLocaleDateString('en-IN')}</span>
+                      <span>{order.expected_delivery_date ? new Date(`${order.expected_delivery_date}T00:00:00`).toLocaleDateString('en-IN') : 'Not set'}</span>
                     </div>
                   </td>
                   <td className="px-4 py-3.5 align-middle whitespace-nowrap">
@@ -568,7 +568,7 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
                 ['Total', formatCurrency(selected.total_amount)],
                 ['Deposit Paid', formatCurrency(selected.deposit_amount)],
                 ['Remaining Balance', formatCurrency(selected.remaining_balance)],
-                ['Delivery Date', new Date(`${selected.expected_delivery_date}T00:00:00`).toLocaleDateString('en-IN')],
+                ['Delivery Date', selected.expected_delivery_date ? new Date(`${selected.expected_delivery_date}T00:00:00`).toLocaleDateString('en-IN') : 'Not set'],
                 ['Created Date', new Date(selected.created_at).toLocaleDateString('en-IN')],
                 ['Created Time', new Date(selected.created_at).toLocaleTimeString('en-IN')],
                 ['Created By', selected.created_by_name || '-'],
