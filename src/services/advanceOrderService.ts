@@ -39,7 +39,11 @@ const STORAGE_PAYMENTS_KEY = 'purple_boutique_advance_payments_v1'
 const loadLocalOrders = (): AdvanceOrder[] => {
   try {
     const raw = localStorage.getItem(STORAGE_ORDERS_KEY)
-    return raw ? (JSON.parse(raw) as AdvanceOrder[]) : []
+    if (raw) {
+      const parsed = JSON.parse(raw) as AdvanceOrder[]
+      return parsed.filter(o => o && o.id && String(o.id).trim() !== '')
+    }
+    return []
   } catch {
     return []
   }
@@ -111,7 +115,7 @@ const normalizeOrder = (row: Record<string, unknown>): AdvanceOrder => ({
 const rpcRow = (data: unknown) => (Array.isArray(data) ? data[0] : data) as Record<string, unknown>
 
 export async function deleteAdvanceOrder(orderId: string): Promise<void> {
-  if (isSupabaseConfigured) {
+  if (isSupabaseConfigured && orderId && orderId.trim() !== '') {
     const { error } = await supabase.from('advance_orders').delete().eq('id', orderId)
     if (error) throw new Error(error.message)
   }
