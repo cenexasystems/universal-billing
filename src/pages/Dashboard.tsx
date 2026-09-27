@@ -80,6 +80,7 @@ type DashboardOrder = {
   created_at: string; total: number; status: string; order_mode: string; order_type: string; user_id: string | null; items: unknown
   coupon_code: string; discount_amount: number; manual_discount_amount: number; delivery_charge: number
   total_gst: number; payment_mode: string; payment_method?: string; invoice_pdf_url: string; remarks?: string; reference_number?: string
+  split_details?: { cash?: number; qr?: number } | null
 }
 type DashboardOrderItem = { order_id: string; product_name: string; category?: string; quantity: number; line_total: number; is_manual?: boolean | null }
 type DashboardCoupon = {
@@ -322,15 +323,13 @@ export default function Dashboard() {
       if (!staffAllowedTabs.includes(tabKey)) return
     }
     if (tabKey === 'inventory') {
-      // Reset silenced state and trigger alarm for inventory/barcode view
+      // Reset silenced/seen state so the alarm re-fires when entering inventory tab
       useAlarmStore.getState().resetSilencedState()
       const lowItems = useAlarmStore.getState().lowStockItems
       if (lowItems.length > 0) {
-        // Re-trigger the alarm with proper sound
-        alarmSound.stopAlert() // Clear any existing alert first
+        // setLowStockItems handles starting the alarm internally
         setTimeout(() => {
           useAlarmStore.getState().setLowStockItems(lowItems)
-          alarmSound.startAlert()
         }, 100)
       }
     }
@@ -351,14 +350,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (tab === 'inventory') {
-      // Reset silenced state and trigger alarm when inventory tab becomes active
+      // Reset silenced/seen state when inventory tab becomes active
       useAlarmStore.getState().resetSilencedState()
       const lowItems = useAlarmStore.getState().lowStockItems
       if (lowItems.length > 0) {
-        // Small delay to ensure the UI is ready and sound can play
         const timer = setTimeout(() => {
+          // setLowStockItems handles starting the alarm internally
           useAlarmStore.getState().setLowStockItems(lowItems)
-          alarmSound.startAlert()
         }, 50)
         return () => clearTimeout(timer)
       }
@@ -386,6 +384,7 @@ export default function Dashboard() {
     invoice_pdf_url: String(row.invoice_pdf_url || ''),
     remarks: row.remarks ? String(row.remarks) : undefined,
     reference_number: row.reference_number ? String(row.reference_number) : undefined,
+    split_details: (row.split_details as { cash?: number; qr?: number }) || null,
   })
 
   const handleAdvanceOrderCompleted = useCallback((advance: AdvanceOrder) => {
@@ -464,6 +463,21 @@ export default function Dashboard() {
     const posRevenue         = offlinePOS.reduce((s, o) => s + getOrderTotal(o), 0)
     const onlinePosRevenue   = onlinePOS.reduce((s, o) => s + getOrderTotal(o), 0)
     const manualRevenue      = manualSales.reduce((s, o) => s + getOrderTotal(o), 0)
+
+    let totalCashRevenue = 0
+    let totalQrRevenue = 0
+    
+    billableCompleted.forEach(o => {
+      const mode = (o.payment_mode || '').toLowerCase()
+      const t = getOrderTotal(o)
+      if (mode === 'cash') totalCashRevenue += t
+      else if (mode === 'qr' || mode === 'upi') totalQrRevenue += t
+      else if (mode === 'split') {
+        const sd = (o as any).split_details as { cash?: number, qr?: number } || {}
+        totalCashRevenue += Number(sd.cash || 0)
+        totalQrRevenue += Number(sd.qr || 0)
+      }
+    })
 
     // Expenses & Net Profit calculation:
     // Net Profit = Revenue (total selling based on orders) - Total Expense (from expense tracker)
@@ -799,6 +813,8 @@ export default function Dashboard() {
       totalExpenses,
       netProfit,
       isProfitable,
+      totalCashRevenue,
+      totalQrRevenue,
     }
   }, [orders, orderItems, products, coupons, expenses, analyticsDateFrom, analyticsDateTo])
 
@@ -824,7 +840,7 @@ export default function Dashboard() {
       const [cRes, oRes, couponRes, expList] = await Promise.all([
         supabase.from('categories').select('id, name_en, name_ta, is_active, sort_order').order('sort_order'),
         supabase.from('orders')
-          .select('id, invoice_no, customer_name, phone, address, created_at, total, status, order_mode, order_type, user_id, items, coupon_code, discount_amount, manual_discount_amount, delivery_charge, total_gst, gst_amount, payment_mode, payment_method, remarks, reference_number')
+          .select('id, invoice_no, customer_name, phone, address, created_at, total, status, order_mode, order_type, user_id, items, coupon_code, discount_amount, manual_discount_amount, delivery_charge, total_gst, gst_amount, payment_mode, payment_method, remarks, reference_number, split_details')
           .order('created_at', { ascending: false })
           .limit(1000),
         supabase.from('coupons')
@@ -1174,16 +1190,24 @@ export default function Dashboard() {
     }
   }
 
+  // Returns YYYY-MM-DD in the local (device) timezone — avoids UTC-offset bugs in IST
+  const toLocalDateStr = (d: Date) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
   const applyDatePreset = (preset: 'today' | 'week' | 'month' | 'custom') => {
     setDatePreset(preset)
     if (preset === 'custom') { setSearch(s => ({ ...s, dateFrom: '', dateTo: '' })); return }
     const today = new Date()
-    const todayStr = today.toISOString().slice(0, 10)
+    const todayStr = toLocalDateStr(today)
     if (preset === 'today') {
       setSearch(s => ({ ...s, dateFrom: todayStr, dateTo: todayStr }))
     } else if (preset === 'week') {
       const weekAgo = new Date(today); weekAgo.setDate(today.getDate() - 6)
-      setSearch(s => ({ ...s, dateFrom: weekAgo.toISOString().slice(0, 10), dateTo: todayStr }))
+      setSearch(s => ({ ...s, dateFrom: toLocalDateStr(weekAgo), dateTo: todayStr }))
     } else if (preset === 'month') {
       setSearch(s => ({ ...s, dateFrom: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`, dateTo: todayStr }))
     }
@@ -2512,6 +2536,22 @@ export default function Dashboard() {
                       bg: 'bg-emerald-50',
                     },
                     {
+                      label: 'Cash Collected',
+                      helper: 'Includes split bills',
+                      value: formatCurrency(analytics.totalCashRevenue),
+                      icon: <RMIcon size={16} />,
+                      color: 'text-green-600',
+                      bg: 'bg-green-50',
+                    },
+                    {
+                      label: 'QR Collected',
+                      helper: 'Includes split bills',
+                      value: formatCurrency(analytics.totalQrRevenue),
+                      icon: <Box size={16} />,
+                      color: 'text-indigo-600',
+                      bg: 'bg-indigo-50',
+                    },
+                    {
                       label: 'Top Product',
                       helper: 'Most sold item',
                       value: analytics.bestProduct || 'No sales yet',
@@ -2774,7 +2814,7 @@ export default function Dashboard() {
                   {[
                     { label: 'Total Product Revenue', value: formatCurrency(analytics.totalCompletedRevenue), icon: <RMIcon size={18} />, from: 'from-emerald-500 to-teal-600' },
                     { label: 'Total Products Sold', value: String(Math.round(analytics.totalProductsSold)), icon: <Package size={18} />, from: 'from-blue-500 to-indigo-600' },
-                    { label: 'Average Product Revenue', value: `${formatCurrency(analytics.averageProductRevenue)} / Product`, icon: <RMIcon size={18} />, from: 'from-violet-500 to-purple-600' },
+                    { label: 'Average Product Revenue', value: formatCurrency(analytics.averageProductRevenue), icon: <RMIcon size={18} />, from: 'from-violet-500 to-purple-600' },
                     { label: 'Top Product', value: analytics.bestProduct || 'No sales yet', icon: <Trophy size={18} />, from: 'from-amber-500 to-orange-600' },
                   ].map((card, i) => (
                     <div key={i} className={`relative overflow-hidden rounded-2xl p-5 shadow-lg border border-white/20 bg-gradient-to-br ${card.from} flex flex-col justify-between min-h-[120px]`}>

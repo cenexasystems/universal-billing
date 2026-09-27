@@ -30,6 +30,8 @@ export const InventoryAnalyticsView: React.FC = () => {
   })
   const [filterType, setFilterType] = useState<string>('all')
   const [search, setSearch] = useState('')
+  // Lookup map: product_id → product name (fallback for when FK join returns null)
+  const [productNameMap, setProductNameMap] = useState<Map<number, string>>(new Map())
 
   const computeDateRange = () => {
     const now = new Date()
@@ -52,8 +54,19 @@ export const InventoryAnalyticsView: React.FC = () => {
     setLoading(true)
     try {
       const { start, end } = computeDateRange()
-      const res = await inventoryService.fetchInventoryAnalytics(start, end)
+      const [res, items] = await Promise.all([
+        inventoryService.fetchInventoryAnalytics(start, end),
+        inventoryService.fetchInventoryItems(),
+      ])
       setData(res)
+      // Build product_id → name lookup from inventory items
+      const nameMap = new Map<number, string>()
+      for (const item of items) {
+        if (!nameMap.has(item.product_id)) {
+          nameMap.set(item.product_id, item.name)
+        }
+      }
+      setProductNameMap(nameMap)
     } catch (err) {
       console.error('Failed to load inventory analytics:', err)
     } finally {
@@ -70,7 +83,8 @@ export const InventoryAnalyticsView: React.FC = () => {
     if (filterType !== 'all' && m.movement_type !== filterType) return false
     if (search.trim()) {
       const q = search.toLowerCase().trim()
-      const prodName = m.product?.name?.toLowerCase() || ''
+      // Use productNameMap as fallback when FK join doesn't return m.product
+      const prodName = (m.product?.name || productNameMap.get(m.product_id) || '').toLowerCase()
       const varName = m.variant?.variant_name?.toLowerCase() || ''
       const barcode = m.barcode_id?.toLowerCase() || ''
       const user = m.created_by_name?.toLowerCase() || ''
@@ -439,7 +453,7 @@ export const InventoryAnalyticsView: React.FC = () => {
                     </td>
                     <td className="p-3">
                       <div className="font-bold text-gray-900 truncate max-w-xs">
-                        {m.product?.name || `Product #${m.product_id}`}
+                        {m.product?.name || productNameMap.get(m.product_id) || `Product #${m.product_id}`}
                       </div>
                       {m.variant?.variant_name && (
                         <div className="text-[10px] font-semibold text-gray-500">

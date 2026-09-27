@@ -60,6 +60,8 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
   const [payments, setPayments] = useState<AdvancePayment[]>([])
   const [paymentOrder, setPaymentOrder] = useState<AdvanceOrder | null>(null)
   const [paymentForm, setPaymentForm] = useState({ method: 'cash' as AdvancePaymentMethod, remarks: '' })
+  const [splitCash, setSplitCash] = useState('')
+  const [splitQr, setSplitQr] = useState('')
   const [couponInput, setCouponInput] = useState('')
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; percentage: number } | null>(null)
   const [couponError, setCouponError] = useState('')
@@ -205,6 +207,15 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
         ? Math.round(paymentOrder.remaining_balance * (manualDiscountNum / 100) * 100) / 100
         : manualDiscountNum
       const finalAmount = Math.max(0, paymentOrder.remaining_balance - couponDiscount - manualDisc)
+
+      if (paymentForm.method === 'split') {
+        const c = Number(splitCash) || 0
+        const q = Number(splitQr) || 0
+        if (c + q < finalAmount) {
+          throw new Error(`Split payment total (${formatCurrency(c+q)}) is less than balance due (${formatCurrency(finalAmount)})`)
+        }
+      }
+
       const parts = [paymentForm.remarks]
       if (appliedCoupon) parts.push(`Coupon: ${appliedCoupon.code} (-${appliedCoupon.percentage}%) = -INR ${couponDiscount.toFixed(2)}`)
       if (manualDisc > 0) parts.push(`Manual Discount: ${manualDiscountType === '%' ? manualDiscountNum + '%' : '₹' + manualDiscountNum.toFixed(2)} = -INR ${manualDisc.toFixed(2)}`)
@@ -218,8 +229,17 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
         manualDisc,
         remarksWithCoupon
       )
+      
+      // Update split_details in the orders table if applicable
+      if (paymentForm.method === 'split') {
+        const { error: splitErr } = await supabase.from('orders').update({
+          split_details: { cash: Number(splitCash) || 0, qr: Number(splitQr) || 0 }
+        }).eq('id', result.order_id)
+        if (splitErr) console.warn('Failed to save split details:', splitErr)
+      }
+
       const completed: AdvanceOrder = { ...paymentOrder, status: 'completed', remaining_balance: finalAmount, completed_at: result.completed_at, completed_order_id: result.order_id, invoice_number: result.invoice_no, final_payment_method: paymentForm.method }
-      setOrders(rows => rows.map(row => row.id === completed.id ? completed : row)); onOrderCompleted?.(completed); setPaymentOrder(null); setPaymentForm({ method: 'cash', remarks: '' }); setAppliedCoupon(null); setCouponInput(''); setCouponError(''); setManualDiscount(''); setManualDiscountType('rm'); setNotice(`${result.invoice_no} generated once. The full ${formatCurrency(completed.total_amount)} is now recognized as revenue.`)
+      setOrders(rows => rows.map(row => row.id === completed.id ? completed : row)); onOrderCompleted?.(completed); setPaymentOrder(null); setPaymentForm({ method: 'cash', remarks: '' }); setSplitCash(''); setSplitQr(''); setAppliedCoupon(null); setCouponInput(''); setCouponError(''); setManualDiscount(''); setManualDiscountType('rm'); setNotice(`${result.invoice_no} generated once. The full ${formatCurrency(completed.total_amount)} is now recognized as revenue.`)
 
       // Redirect to WhatsApp with final invoice URL + Instagram + Feedback form
       whatsappInvoice(completed)
@@ -508,8 +528,19 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
                 <option value="cash">Cash</option>
                 <option value="upi">QR</option>
                 <option value="card">Card</option>
+                <option value="split">Split</option>
               </select>
             </Field>
+            {paymentForm.method === 'split' && (
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Cash Amount">
+                  <input type="number" min="0" step="0.01" className={inputClass} value={splitCash} onChange={e=>setSplitCash(e.target.value)} placeholder="0" />
+                </Field>
+                <Field label="QR Amount">
+                  <input type="number" min="0" step="0.01" className={inputClass} value={splitQr} onChange={e=>setSplitQr(e.target.value)} placeholder="0" />
+                </Field>
+              </div>
+            )}
             <Field label="Payment Notes">
               <textarea className={inputClass} value={paymentForm.remarks} onChange={e=>setPaymentForm({...paymentForm,remarks:e.target.value})} placeholder="Notes about this payment (optional)"/>
             </Field>

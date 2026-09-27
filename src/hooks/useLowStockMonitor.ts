@@ -34,7 +34,7 @@ export function useLowStockMonitor(enabled: boolean = true, role?: string | null
 
       const flagged: LowStockItem[] = []
 
-      // Check standard products (Only alert for actual inventory running low: 0 < stock <= threshold)
+      // Check standard products
       for (const p of prods || []) {
         if (
           (p.category && p.category.trim().toLowerCase() === 'unregistered') ||
@@ -45,7 +45,6 @@ export function useLowStockMonitor(enabled: boolean = true, role?: string | null
         const threshold = Number(p.low_stock_alert) > 0 ? Number(p.low_stock_alert) : 5
         const currentStock = Number(p.stock_quantity) || 0
 
-        // Alert for products running low or out of stock (currentStock <= threshold)
         if (currentStock <= threshold) {
           flagged.push({
             id: `p-${p.id}`,
@@ -58,7 +57,7 @@ export function useLowStockMonitor(enabled: boolean = true, role?: string | null
         }
       }
 
-      // Check product variants (alert for variants running low or out of stock)
+      // Check product variants
       for (const v of variants || []) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const parentProd = v.products as any
@@ -99,20 +98,22 @@ export function useLowStockMonitor(enabled: boolean = true, role?: string | null
   useEffect(() => {
     if (!enabled) return
 
-    // Immediately unblock and run fresh stock check on login or role switch
+    // Run an immediate check on mount / role switch
     isCheckingRef.current = false
     void checkStockLevels(true)
 
-    // 15-second interval continuous stock monitor
+    // Poll every 5 minutes — the alarm only re-fires for genuinely new items
+    // (alarmStore.setLowStockItems compares silencedItemIds so already-acknowledged
+    //  items never re-trigger the sound even if they stay in the list)
     const interval = setInterval(() => {
       void checkStockLevels()
-    }, 15000)
+    }, 300000)
 
     if (!isSupabaseConfigured) {
       return () => clearInterval(interval)
     }
 
-    // Realtime channel to immediately trigger alarm on stock updates across both Admin and Staff panels
+    // Realtime: re-check immediately when products/variants change in the DB
     const realtimeChannel = supabase
       .channel('low-stock-realtime-monitor')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
@@ -128,12 +129,6 @@ export function useLowStockMonitor(enabled: boolean = true, role?: string | null
       void supabase.removeChannel(realtimeChannel)
     }
   }, [enabled, role])
-
-  // Re-check stock levels when enabled changes from false to true (e.g., on login)
-  useEffect(() => {
-    if (enabled && !isCheckingRef.current) {
-      isCheckingRef.current = false
-      void checkStockLevels(true)
-    }
-  }, [enabled])
+  // NOTE: The second useEffect that also watched [enabled] was removed — it caused
+  // a duplicate check every time the component mounted, making the alarm appear twice.
 }

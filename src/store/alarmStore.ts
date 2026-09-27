@@ -15,6 +15,8 @@ interface AlarmState {
   lowStockItems: LowStockItem[]
   isAlarmActive: boolean
   silencedItemIds: Set<string | number>
+  // IDs seen during the current session (to avoid re-triggering sound for known items)
+  seenItemIds: Set<string | number>
   setLowStockItems: (items: LowStockItem[]) => void
   silenceAlarm: () => void
   resetSilencedState: () => void
@@ -24,33 +26,46 @@ export const useAlarmStore = create<AlarmState>((set, get) => ({
   lowStockItems: [],
   isAlarmActive: false,
   silencedItemIds: new Set<string | number>(),
+  seenItemIds: new Set<string | number>(),
 
   setLowStockItems: (items) => {
-    const { silencedItemIds, lowStockItems: previousItems } = get()
-    
-    // Alarm triggers only if there is at least one low-stock item that has not been acknowledged
-    const hasUnsilencedLowStock = items.some(
+    const { silencedItemIds, seenItemIds } = get()
+
+    // Unsilenced items that have NOT been shown to the user yet this session
+    const trulyNewItems = items.filter(
+      (item) =>
+        !silencedItemIds.has(String(item.id)) &&
+        !silencedItemIds.has(item.id) &&
+        !seenItemIds.has(String(item.id)) &&
+        !seenItemIds.has(item.id)
+    )
+
+    // Any unsilenced low-stock item (for showing the modal)
+    const hasUnsilenced = items.some(
       (item) => !silencedItemIds.has(String(item.id)) && !silencedItemIds.has(item.id)
     )
 
-    if (items.length > 0 && hasUnsilencedLowStock) {
-      // Check if alarm was already active - if not, make sure to start it
-      const wasAlarmActive = get().isAlarmActive
-      
-      // Always start/restart the alert to ensure sound plays
-      alarmSound.startAlert()
-      set({ lowStockItems: items, isAlarmActive: true })
-      
-      // If alarm wasn't active before, this is a new alert - log it for debugging
-      if (!wasAlarmActive) {
-        console.log('[Low Stock Alert] New low stock items detected:', items.length)
+    if (items.length > 0 && hasUnsilenced) {
+      // Only (re)start the audible alarm when there are genuinely NEW items not yet seen
+      if (trulyNewItems.length > 0) {
+        alarmSound.startAlert()
+        console.log('[Low Stock Alert] New low-stock items detected:', trulyNewItems.map(i => i.name))
       }
+
+      // Mark all current items as seen so the next poll doesn't re-sound them
+      const nextSeen = new Set(seenItemIds)
+      items.forEach((i) => {
+        nextSeen.add(String(i.id))
+        nextSeen.add(i.id)
+      })
+
+      set({ lowStockItems: items, isAlarmActive: true, seenItemIds: nextSeen })
     } else {
-      // If no items or all items are acknowledged/silenced, ensure alert is stopped
       alarmSound.stopAlert()
       set({ lowStockItems: items, isAlarmActive: false })
       if (items.length === 0) {
-        set({ silencedItemIds: new Set() })
+        // All clear — reset everything so future stock issues are treated as new
+        set({ silencedItemIds: new Set(), seenItemIds: new Set() })
       }
     }
   },
@@ -65,6 +80,6 @@ export const useAlarmStore = create<AlarmState>((set, get) => ({
   },
 
   resetSilencedState: () => {
-    set({ silencedItemIds: new Set() })
+    set({ silencedItemIds: new Set(), seenItemIds: new Set() })
   },
 }))

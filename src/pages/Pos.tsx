@@ -146,7 +146,7 @@ export default function Pos(props: PosProps = {}) {
   const [remarks, setRemarks] = useState('')
   const [referenceNumber, setReferenceNumber] = useState('')
   const [billingDate, setBillingDate] = useState('') // '' = use current date/time
-  const [paymentType, setPaymentType] = useState<'cash' | 'qr' | 'card'>('cash')
+  const [paymentType, setPaymentType] = useState<'cash' | 'qr' | 'card' | 'split'>('cash')
   const [saving, setSaving] = useState(false)
   const [shipping, setShipping] = useState<string>('0')
   const [couponInput, setCouponInput] = useState('')
@@ -159,6 +159,8 @@ export default function Pos(props: PosProps = {}) {
   const [error, setError] = useState('')
   const [invoice, setInvoice] = useState<InvoiceSnap | null>(null)
   const [cashReceived, setCashReceived] = useState<string>('')
+  const [splitCash, setSplitCash] = useState<string>('')
+  const [splitQr, setSplitQr] = useState<string>('')
   const [mobilePanelView, setMobilePanelView] = useState<'catalogue' | 'bill'>('catalogue')
   const [ordermode, setOrdermode] = useState<'online' | 'offline'>('offline')
   const [variantPickerProduct, setVariantPickerProduct] = useState<Product | null>(null)
@@ -642,6 +644,8 @@ export default function Pos(props: PosProps = {}) {
     setCustomer({ name: '', phone: '', address: '' })
     setInvoice(null)
     setCashReceived('')
+    setSplitCash('')
+    setSplitQr('')
     setCouponInput('')
     setAppliedCoupon(null)
     setCouponError('')
@@ -776,9 +780,14 @@ export default function Pos(props: PosProps = {}) {
     // Validate required phone
     const normalizedPhone = normalizePhone(customer.phone || '')
     if (!normalizedPhone) { setError('Please enter a valid Indian mobile number (e.g. 9876543210 or +91 9876543210)'); return }
-    // Validate payment amount (only required for cash)
+    // Validate payment amount
     if (paymentType === 'cash' && !cashReceived.trim()) { setError('Enter the amount received from customer'); return }
     if (paymentType === 'cash' && cashReceivedNum < total) { setError(`Insufficient payment. Customer still owes ${formatCurrency(total - cashReceivedNum)}`); return }
+    if (paymentType === 'split') {
+      const c = Number(splitCash) || 0
+      const q = Number(splitQr) || 0
+      if (c + q < total) { setError(`Split payment total (${formatCurrency(c+q)}) is less than bill total (${formatCurrency(total)})`); return }
+    }
     // Validate online mode availability
     if (ordermode === 'online' && !isSupabaseConfigured) { setError('Cannot place online orders while offline'); return }
     setSaving(true); setError('')
@@ -835,6 +844,7 @@ export default function Pos(props: PosProps = {}) {
         gst_amount: totalGst,
         payment_mode: paymentMode,
         payment_method: paymentMode,
+        split_details: paymentMode === 'split' ? { cash: Number(splitCash) || 0, qr: Number(splitQr) || 0 } : null,
         discount_amount: couponDiscount,
         manual_discount_amount: manualDiscountAmount,
         delivery_charge: Number(shipping || 0),
@@ -1664,8 +1674,8 @@ export default function Pos(props: PosProps = {}) {
               {/* Payment Mode Selector */}
               <div>
                 <label className="block text-[10px] font-black text-[#374151] tracking-wider uppercase mb-1">Payment Mode</label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(['cash', 'qr', 'card'] as const).map(mode => (
+                <div className="grid grid-cols-4 gap-1.5">
+                  {(['cash', 'qr', 'card', 'split'] as const).map(mode => (
                     <button
                       key={mode}
                       type="button"
@@ -1676,14 +1686,14 @@ export default function Pos(props: PosProps = {}) {
                           : 'bg-white text-[#374151] border-gray-200 hover:border-gray-300'
                       }`}
                     >
-                      {mode === 'qr' ? 'QR' : mode === 'card' ? 'Card' : 'Cash'}
+                      {mode === 'qr' ? 'QR' : mode === 'card' ? 'Card' : mode === 'split' ? 'Split' : 'Cash'}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Amount Received (shown for all payment modes) */}
-              {ordermode !== 'online' && (
+              {/* Amount Received (shown for non-split payment modes) */}
+              {ordermode !== 'online' && paymentType !== 'split' && (
               <div>
                 <div className="border border-gray-200 rounded-xl p-2.5 bg-white">
                   <label className="block text-[10px] font-black text-[#374151] tracking-wider uppercase mb-0.5">
@@ -1702,6 +1712,36 @@ export default function Pos(props: PosProps = {}) {
                       <span className="text-[12px] font-black text-[#111111]">{formatCurrency(balanceToReturn)}</span>
                     </div>
                   )}
+                </div>
+              </div>
+              )}
+
+              {/* Split Payment Amounts */}
+              {ordermode !== 'online' && paymentType === 'split' && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="border border-gray-200 rounded-xl p-2.5 bg-white">
+                  <label className="block text-[10px] font-black text-[#374151] tracking-wider uppercase mb-0.5">
+                    Cash Amount (₹)
+                  </label>
+                  <input
+                    type="number" onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                    value={splitCash}
+                    onChange={e => setSplitCash(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full h-9 px-3 bg-[#FAFAFA] border border-gray-200 rounded-xl text-[13px] font-black text-[#111111] focus:outline-none focus:border-[#D4AF37]"
+                  />
+                </div>
+                <div className="border border-gray-200 rounded-xl p-2.5 bg-white">
+                  <label className="block text-[10px] font-black text-[#374151] tracking-wider uppercase mb-0.5">
+                    QR Amount (₹)
+                  </label>
+                  <input
+                    type="number" onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                    value={splitQr}
+                    onChange={e => setSplitQr(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full h-9 px-3 bg-[#FAFAFA] border border-gray-200 rounded-xl text-[13px] font-black text-[#111111] focus:outline-none focus:border-[#D4AF37]"
+                  />
                 </div>
               </div>
               )}
