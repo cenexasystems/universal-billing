@@ -1,5 +1,6 @@
 /**
  * Synthesized Web Audio API Alarm Sound Manager
+ * Gentle retail-friendly chime — a soft single sine pulse every 6 seconds.
  * Provides reliable, zero-latency, cross-platform audio alerts for retail environments.
  * Specifically optimized for iOS Safari, mobile Chrome/Android, and mobile WebViews with:
  * - Resilient user-gesture unlocking
@@ -8,33 +9,38 @@
  * - Dual-engine fallback via synthesized in-memory WAV chime
  */
 
-function createBeepWavDataUri(freq: number = 880, durationMs: number = 220): string {
+function createBeepWavDataUri(freq: number = 520, durationMs: number = 600): string {
   if (typeof window === 'undefined') return ''
   try {
-    const sampleRate = 8000
+    const sampleRate = 44100
     const numSamples = Math.floor((sampleRate * durationMs) / 1000)
     const buffer = new ArrayBuffer(44 + numSamples * 2)
     const view = new DataView(buffer)
 
-    // RIFF identifier
-    view.setUint32(0, 0x52494646, false) // 'RIFF'
+    // RIFF header
+    view.setUint32(0, 0x52494646, false)
     view.setUint32(4, 36 + numSamples * 2, true)
-    view.setUint32(8, 0x57415645, false) // 'WAVE'
-    view.setUint32(12, 0x666d7420, false) // 'fmt '
-    view.setUint32(16, 16, true) // Subchunk1Size
-    view.setUint16(20, 1, true) // PCM format
-    view.setUint16(22, 1, true) // 1 channel mono
-    view.setUint32(24, sampleRate, true) // SampleRate
-    view.setUint32(28, sampleRate * 2, true) // ByteRate
-    view.setUint16(32, 2, true) // BlockAlign
-    view.setUint16(34, 16, true) // BitsPerSample
-    view.setUint32(36, 0x64617461, false) // 'data'
+    view.setUint32(8, 0x57415645, false)
+    view.setUint32(12, 0x666d7420, false)
+    view.setUint32(16, 16, true)
+    view.setUint16(20, 1, true)
+    view.setUint16(22, 1, true)
+    view.setUint32(24, sampleRate, true)
+    view.setUint32(28, sampleRate * 2, true)
+    view.setUint16(32, 2, true)
+    view.setUint16(34, 16, true)
+    view.setUint32(36, 0x64617461, false)
     view.setUint32(40, numSamples * 2, true)
 
+    // Sine wave with smooth bell-curve envelope (attack + long decay)
     for (let i = 0; i < numSamples; i++) {
       const t = i / sampleRate
-      const envelope = Math.max(0, 1 - i / numSamples)
-      const sample = Math.sin(2 * Math.PI * freq * t) * envelope * 0.75 * 32767
+      const progress = i / numSamples
+      // Quick attack (first 5%), slow exponential decay
+      const attack = Math.min(1, progress / 0.05)
+      const decay = Math.exp(-progress * 5)
+      const envelope = attack * decay
+      const sample = Math.sin(2 * Math.PI * freq * t) * envelope * 0.45 * 32767
       view.setInt16(44 + i * 2, Math.floor(sample), true)
     }
 
@@ -63,9 +69,6 @@ class AlarmSoundManager {
     this.attachGlobalListeners()
   }
 
-  /**
-   * Subscribe to audio state changes (e.g. when context is resumed or suspended)
-   */
   public subscribe(callback: () => void): () => void {
     this.subscribers.add(callback)
     return () => {
@@ -75,17 +78,10 @@ class AlarmSoundManager {
 
   private notify() {
     this.subscribers.forEach((cb) => {
-      try {
-        cb()
-      } catch {
-        // ignore subscriber errors
-      }
+      try { cb() } catch { /* ignore */ }
     })
   }
 
-  /**
-   * Check if the alarm is triggered but audio is currently blocked/suspended by browser policies (e.g. iOS Safari)
-   */
   public isBlocked(): boolean {
     if (!this.isAlarmPlaying) return false
     if (!this.ctx) return true
@@ -105,30 +101,20 @@ class AlarmSoundManager {
           (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
         if (AudioCtx) {
           this.ctx = new AudioCtx()
-          this.ctx.onstatechange = () => {
-            this.notify()
-          }
+          this.ctx.onstatechange = () => { this.notify() }
         }
-      } catch {
-        return null
-      }
+      } catch { return null }
     }
     if (this.ctx && !this.masterGain) {
       try {
         this.masterGain = this.ctx.createGain()
         this.masterGain.gain.setValueAtTime(1, this.ctx.currentTime)
         this.masterGain.connect(this.ctx.destination)
-      } catch {
-        // ignore
-      }
+      } catch { /* ignore */ }
     }
     return this.ctx
   }
 
-  /**
-   * Explicitly unlock audio context on a user gesture (touch/click/key)
-   * Plays a silent buffer required by iOS Safari to wake the audio hardware.
-   */
   public unlock = async (): Promise<boolean> => {
     try {
       const ctx = this.getContext()
@@ -136,8 +122,6 @@ class AlarmSoundManager {
         if (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted') {
           await ctx.resume().catch(() => {})
         }
-
-        // iOS Safari silent buffer warmup: required to connect Web Audio pipeline to speakers
         if (ctx.state === 'running') {
           try {
             const buffer = ctx.createBuffer(1, 1, 22050)
@@ -145,40 +129,28 @@ class AlarmSoundManager {
             source.buffer = buffer
             source.connect(ctx.destination)
             source.start(0)
-          } catch {
-            // ignore
-          }
+          } catch { /* ignore */ }
         }
       }
-
-      // Pre-warm fallback HTML5 audio for iOS
       this.warmupFallbackAudio()
-
       this.notify()
-
-      // If alarm is already flagged to play, immediately output sound on this gesture
-      if (this.isAlarmPlaying) {
-        this.playBeep()
-      }
-
+      if (this.isAlarmPlaying) { this.playChime() }
       return this.ctx?.state === 'running'
-    } catch {
-      return false
-    }
+    } catch { return false }
   }
 
   private warmupFallbackAudio() {
     if (typeof window === 'undefined') return
     if (!this.fallbackAudio) {
-      const uri = createBeepWavDataUri(880, 180)
+      const uri = createBeepWavDataUri(520, 600)
       if (uri) {
         this.fallbackAudio = new Audio(uri)
-        this.fallbackAudio.volume = 1.0
+        this.fallbackAudio.volume = 0.5
       }
     }
   }
 
-  private playFallbackBeep() {
+  private playFallbackChime() {
     this.warmupFallbackAudio()
     if (!this.fallbackAudio) return
     try {
@@ -187,9 +159,7 @@ class AlarmSoundManager {
       if (promise && typeof promise.then === 'function') {
         promise.catch(() => {})
       }
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }
 
   private attachGlobalListeners() {
@@ -197,7 +167,6 @@ class AlarmSoundManager {
     this.listenersAttached = true
 
     const handleGesture = () => {
-      // If audio is not yet running or an alarm is active, trigger unlock
       if (!this.ctx || this.ctx.state !== 'running' || this.isAlarmPlaying) {
         void this.unlock()
       }
@@ -208,42 +177,34 @@ class AlarmSoundManager {
       window.addEventListener(evt, handleGesture, { passive: true })
     })
 
-    // Handle mobile tab switching / phone screen wake-up
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        if (this.isAlarmPlaying) {
-          void this.unlock()
-        }
+      if (document.visibilityState === 'visible' && this.isAlarmPlaying) {
+        void this.unlock()
       }
     })
 
     window.addEventListener('pageshow', () => {
-      if (this.isAlarmPlaying) {
-        void this.unlock()
-      }
+      if (this.isAlarmPlaying) { void this.unlock() }
     })
   }
 
-  // Dual-tone urgent alert pulse (A5 880 Hz -> E5 660 Hz)
-  private playBeep() {
+  /**
+   * Soft single-note chime: sine wave at 520 Hz, gentle volume,
+   * smooth bell-curve envelope (quick attack, long decay ~0.6s).
+   * Much less irritating than the old sawtooth double-pulse.
+   */
+  private playChime() {
     if (!this.isAlarmPlaying) return
     const ctx = this.getContext()
 
-    // If context is still suspended, attempt resume and trigger fallback audio
     if (!ctx || ctx.state !== 'running') {
       if (ctx && ctx.state === 'suspended') {
-        ctx
-          .resume()
-          .then(() => {
-            this.notify()
-            if (this.isAlarmPlaying && ctx.state === 'running') {
-              this.playBeep()
-            }
-          })
-          .catch(() => {})
+        ctx.resume().then(() => {
+          this.notify()
+          if (this.isAlarmPlaying && ctx.state === 'running') { this.playChime() }
+        }).catch(() => {})
       }
-      // Attempt HTML5 fallback chime on iOS / mobile
-      this.playFallbackBeep()
+      this.playFallbackChime()
       this.notify()
       return
     }
@@ -252,72 +213,59 @@ class AlarmSoundManager {
 
     try {
       const now = ctx.currentTime
+      const duration = 0.65  // seconds — gentle fade out
 
-      // Double-pulse urgent beep: Pulse 1 at now, Pulse 2 at now + 0.18s
-      const scheduleTone = (timeOffset: number, f1: number, f2: number) => {
-        const osc = ctx.createOscillator()
-        const gain = ctx.createGain()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
 
-        osc.type = 'sawtooth'
-        osc.frequency.setValueAtTime(f1, now + timeOffset)
-        osc.frequency.setValueAtTime(f2, now + timeOffset + 0.08)
+      osc.type = 'sine'                          // soft, rounded tone (not buzzy)
+      osc.frequency.setValueAtTime(520, now)     // C5-ish — gentle, not shrill
 
-        gain.gain.setValueAtTime(0.35, now + timeOffset)
-        gain.gain.exponentialRampToValueAtTime(0.001, now + timeOffset + 0.16)
+      // Quick attack (5ms), exponential decay to silence
+      gain.gain.setValueAtTime(0, now)
+      gain.gain.linearRampToValueAtTime(0.18, now + 0.015)  // attack
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration)  // decay
 
-        osc.connect(gain)
-        if (this.masterGain) {
-          gain.connect(this.masterGain)
-        }
+      osc.connect(gain)
+      if (this.masterGain) { gain.connect(this.masterGain) }
 
-        this.activeOscillators.push(osc)
-        osc.onended = () => {
-          const idx = this.activeOscillators.indexOf(osc)
-          if (idx !== -1) this.activeOscillators.splice(idx, 1)
-        }
-
-        osc.start(now + timeOffset)
-        osc.stop(now + timeOffset + 0.17)
+      this.activeOscillators.push(osc)
+      osc.onended = () => {
+        const idx = this.activeOscillators.indexOf(osc)
+        if (idx !== -1) this.activeOscillators.splice(idx, 1)
       }
 
-      // First beep pulse (880Hz -> 660Hz)
-      scheduleTone(0, 880, 660)
-      // Second beep pulse (880Hz -> 660Hz)
-      scheduleTone(0.18, 880, 660)
+      osc.start(now)
+      osc.stop(now + duration)
 
       this.notify()
     } catch {
-      // If Web Audio fails during scheduling, try fallback
-      this.playFallbackBeep()
+      this.playFallbackChime()
     }
   }
 
   public startAlert() {
     if (this.isAlarmPlaying) return
-    this.stopAlert() // Clear any existing intervals / state
+    this.stopAlert()
 
     this.isAlarmPlaying = true
     const ctx = this.getContext()
     if (ctx && this.masterGain) {
-      try {
-        this.masterGain.gain.setValueAtTime(1, ctx.currentTime)
-      } catch {
-        // ignore
-      }
+      try { this.masterGain.gain.setValueAtTime(1, ctx.currentTime) } catch { /* ignore */ }
     }
 
-    // Attempt initial beep
-    this.playBeep()
+    // Play once immediately
+    this.playChime()
 
-    // Repeat alert pulse every 1.4 seconds until silenced
+    // Then repeat gently every 6 seconds (not a rapid-fire ping)
     this.intervalId = window.setInterval(() => {
       if (this.isAlarmPlaying) {
-        this.playBeep()
+        this.playChime()
       } else if (this.intervalId) {
         clearInterval(this.intervalId)
         this.intervalId = null
       }
-    }, 1400)
+    }, 6000)
 
     this.notify()
   }
@@ -330,34 +278,17 @@ class AlarmSoundManager {
       this.intervalId = null
     }
 
-    // Immediately silence master gain
     if (this.masterGain && this.ctx) {
-      try {
-        this.masterGain.gain.setValueAtTime(0, this.ctx.currentTime)
-      } catch {
-        // ignore
-      }
+      try { this.masterGain.gain.setValueAtTime(0, this.ctx.currentTime) } catch { /* ignore */ }
     }
 
-    // Stop and disconnect any currently sounding oscillators
     for (const osc of this.activeOscillators) {
-      try {
-        osc.stop()
-        osc.disconnect()
-      } catch {
-        // ignore
-      }
+      try { osc.stop(); osc.disconnect() } catch { /* ignore */ }
     }
     this.activeOscillators = []
 
-    // Silence fallback audio if currently playing
     if (this.fallbackAudio) {
-      try {
-        this.fallbackAudio.pause()
-        this.fallbackAudio.currentTime = 0
-      } catch {
-        // ignore
-      }
+      try { this.fallbackAudio.pause(); this.fallbackAudio.currentTime = 0 } catch { /* ignore */ }
     }
 
     this.notify()
