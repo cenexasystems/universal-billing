@@ -57,24 +57,7 @@ export const InventoryTable: React.FC = () => {
       const data = await inventoryService.fetchInventoryItems()
       setItems(data)
 
-      // Alert sound and modal when viewing inventory with low stock
-      const lowStockFlagged = data
-        .filter((i) => i.is_active && i.stock <= (i.low_stock_threshold || 5))
-        .map((i) => ({
-          id: i.variant_id ? `v-${i.variant_id}` : `p-${i.product_id}`,
-          name: i.name,
-          variantName: i.variant_name || undefined,
-          stock: i.stock,
-          alertThreshold: i.low_stock_threshold || 5,
-          barcode: i.barcode || undefined,
-          category: i.category || undefined,
-        }))
-
-      if (lowStockFlagged.length > 0) {
-        useAlarmStore.getState().resetSilencedState()
-        useAlarmStore.getState().setLowStockItems(lowStockFlagged)
-        alarmSound.startAlert()
-      }
+      // We do not force start the alarm here. It is handled by useLowStockMonitor.
     } catch (err) {
       console.error('Failed to load inventory items:', err)
     } finally {

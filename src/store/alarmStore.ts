@@ -30,36 +30,39 @@ export const useAlarmStore = create<AlarmState>((set, get) => ({
 
   setLowStockItems: (items) => {
     const { silencedItemIds, seenItemIds } = get()
+    const currentItemIds = new Set(items.map(i => String(i.id)))
+
+    // Clean up memory: remove items from silenced/seen sets if they are no longer low-stock
+    const nextSilenced = new Set([...silencedItemIds].filter(id => currentItemIds.has(String(id))))
+    const nextSeen = new Set([...seenItemIds].filter(id => currentItemIds.has(String(id))))
 
     // Unsilenced items that have NOT been shown to the user yet this session
     const trulyNewItems = items.filter(
-      (item) =>
-        !silencedItemIds.has(String(item.id)) &&
-        !silencedItemIds.has(item.id) &&
-        !seenItemIds.has(String(item.id)) &&
-        !seenItemIds.has(item.id)
+      (item) => !nextSilenced.has(String(item.id)) && !nextSeen.has(String(item.id))
     )
 
     // Any unsilenced low-stock item (for showing the modal)
     const hasUnsilenced = items.some(
-      (item) => !silencedItemIds.has(String(item.id)) && !silencedItemIds.has(item.id)
+      (item) => !nextSilenced.has(String(item.id))
     )
 
     if (items.length > 0 && hasUnsilenced) {
       // Only (re)start the audible alarm when there are genuinely NEW items not yet seen
       if (trulyNewItems.length > 0) {
         alarmSound.startAlert()
-        console.log('[Low Stock Alert] New low-stock items detected:', trulyNewItems.map(i => i.name))
       }
 
       // Mark all current items as seen so the next poll doesn't re-sound them
-      const nextSeen = new Set(seenItemIds)
       items.forEach((i) => {
         nextSeen.add(String(i.id))
-        nextSeen.add(i.id)
       })
 
-      set({ lowStockItems: items, isAlarmActive: true, seenItemIds: nextSeen })
+      set({ 
+        lowStockItems: items, 
+        isAlarmActive: true, 
+        seenItemIds: nextSeen,
+        silencedItemIds: nextSilenced
+      })
     } else {
       alarmSound.stopAlert()
       set({ lowStockItems: items, isAlarmActive: false })

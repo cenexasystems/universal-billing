@@ -322,17 +322,6 @@ export default function Dashboard() {
       const staffAllowedTabs: TabKey[] = ['billing', 'inventory', 'advance_orders', 'history']
       if (!staffAllowedTabs.includes(tabKey)) return
     }
-    if (tabKey === 'inventory') {
-      // Reset silenced/seen state so the alarm re-fires when entering inventory tab
-      useAlarmStore.getState().resetSilencedState()
-      const lowItems = useAlarmStore.getState().lowStockItems
-      if (lowItems.length > 0) {
-        // setLowStockItems handles starting the alarm internally
-        setTimeout(() => {
-          useAlarmStore.getState().setLowStockItems(lowItems)
-        }, 100)
-      }
-    }
     setTab(tabKey)
     setCurrentTab(tabKey)
     if (tabKey === 'pos_analytics') {
@@ -347,21 +336,6 @@ export default function Dashboard() {
       navigate('/dashboard', { replace: true })
     }
   }
-
-  useEffect(() => {
-    if (tab === 'inventory') {
-      // Reset silenced/seen state when inventory tab becomes active
-      useAlarmStore.getState().resetSilencedState()
-      const lowItems = useAlarmStore.getState().lowStockItems
-      if (lowItems.length > 0) {
-        const timer = setTimeout(() => {
-          // setLowStockItems handles starting the alarm internally
-          useAlarmStore.getState().setLowStockItems(lowItems)
-        }, 50)
-        return () => clearTimeout(timer)
-      }
-    }
-  }, [tab])
 
   const deletedOrderIds = React.useRef<Set<string>>(new Set())
 
