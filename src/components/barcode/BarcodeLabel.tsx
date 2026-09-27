@@ -41,7 +41,7 @@ export const BarcodeLabel: React.FC<BarcodeLabelProps> = ({
         height: barcodeHeightPx,
         fontSize: barcodeFontSize,
         font: 'Arial, sans-serif',
-        margin: 0,
+        margin: 8, // Added quiet zone for camera scanners
         textMargin: 1.5,
         displayValue: true,
       })
