@@ -156,11 +156,10 @@ export const barcodeService = {
       } as BarcodeRegistryRecord
     }
 
-    // 3. Fallback: Check products.barcode (case-insensitive)
+    // 3. Fallback: Check products.barcode via the dedicated ?barcode= param (case-insensitive in backend)
     const { data: prodData } = await supabase
       .from('products')
-      .select('id, name, name_ta, price, offer_price, image_url, category, barcode, stock_quantity')
-      .ilike('barcode', cleanValue)
+      .eq('barcode', cleanValue)
       .maybeSingle()
 
     if (prodData) {

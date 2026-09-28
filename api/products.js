@@ -8,6 +8,25 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
+      const { id, barcode } = req.query;
+      
+      // Filtered by ID
+      if (id) {
+        const rows = await sql.unsafe(
+          `SELECT * FROM public.products WHERE id = $1 LIMIT 1`, [id]
+        );
+        return res.status(200).json(rows);
+      }
+      
+      // Filtered by barcode (case-insensitive)
+      if (barcode) {
+        const rows = await sql.unsafe(
+          `SELECT * FROM public.products WHERE UPPER(barcode) = UPPER($1) LIMIT 1`, [barcode]
+        );
+        return res.status(200).json(rows);
+      }
+      
+      // All products
       const rows = await sql`SELECT * FROM public.products ORDER BY sort_order, name`;
       return res.status(200).json(rows);
     }
