@@ -89,23 +89,23 @@ export default async function handler(req, res) {
 
     if (fn === 'create_advance_order') {
       const [result] = await sql`
-        SELECT public.create_advance_order(
+        SELECT row_to_json(public.create_advance_order(
           ${args.p_customer_name}, ${args.p_phone}, ${args.p_address}, ${args.p_product_name},
           ${args.p_category}, ${args.p_description}, ${args.p_total_amount},
           ${args.p_deposit_amount}, ${args.p_expected_delivery_date}, ${args.p_remarks||''},
           ${args.p_payment_method}, ${args.p_created_by_name}, ${JSON.stringify(args.p_products||[])}::jsonb
-        ) as data
+        )) as data
       `;
       return res.status(200).json(result.data);
     }
 
     if (fn === 'complete_advance_order_v2') {
       const [result] = await sql`
-        SELECT public.complete_advance_order_v2(
+        SELECT row_to_json(public.complete_advance_order_v2(
           ${args.p_order_id}, ${args.p_payment_method}, ${args.p_final_amount},
           ${args.p_coupon_code||null}, ${args.p_coupon_percentage||0}, ${args.p_manual_discount||0},
           ${args.p_remarks||''}
-        ) as data
+        )) as data
       `;
       return res.status(200).json(result.data);
     }
@@ -127,9 +127,9 @@ export default async function handler(req, res) {
 
     if (fn === 'update_advance_order_status') {
       const [result] = await sql`
-        SELECT public.update_advance_order_status(
+        SELECT row_to_json(public.update_advance_order_status(
           ${args.p_order_id}, ${args.p_status}, ${args.p_remarks||''}
-        ) as data
+        )) as data
       `;
       return res.status(200).json(result.data);
     }
@@ -145,9 +145,9 @@ export default async function handler(req, res) {
 
     if (fn === 'get_public_invoice_by_number') {
       const [result] = await sql`
-        SELECT public.get_public_invoice_by_number(
+        SELECT row_to_json(public.get_public_invoice_by_number(
           ${args.p_invoice_no}
-        ) as data
+        )) as data
       `;
       return res.status(200).json(result.data);
     }
