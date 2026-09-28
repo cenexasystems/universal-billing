@@ -126,8 +126,9 @@ class QueryBuilder {
     }
   }
 
-  private _method: 'GET' | 'POST' | 'PATCH' | 'DELETE' = 'GET'
+  private _method: 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'UPSERT' = 'GET'
   private _payload: any = null
+  private _upsertOptions?: { onConflict?: string }
 
   insert(payload: Record<string, unknown> | Record<string, unknown>[]) {
     this._method = 'POST'
@@ -138,6 +139,13 @@ class QueryBuilder {
   update(payload: Record<string, unknown>) {
     this._method = 'PATCH'
     this._payload = payload
+    return this
+  }
+
+  upsert(payload: any, options?: { onConflict?: string }) {
+    this._method = 'UPSERT'
+    this._payload = Array.isArray(payload) ? payload[0] : payload
+    this._upsertOptions = options
     return this
   }
 
@@ -164,6 +172,26 @@ class QueryBuilder {
         const data = await request<unknown[]>(`${base}${qs ? '?' + qs : ''}`)
         if (this._single) return { data: Array.isArray(data) ? data[0] ?? null : data, error: null }
         return { data, error: null, count: Array.isArray(data) ? data.length : 0 }
+      } catch (e) {
+        return { data: null, error: { message: (e as Error).message } }
+      }
+    } else if (this._method === 'UPSERT') {
+      try {
+        const onConflict = this._upsertOptions?.onConflict || 'id'
+        const conflictVal = this._payload[onConflict]
+        if (conflictVal !== undefined) {
+          const qs = `table=${this._table}&${onConflict}=${encodeURIComponent(String(conflictVal))}&limit=1`
+          const base = this._table === 'products' ? '/products' : '/query'
+          const existing = await request<unknown[]>(`${base}?${qs}`)
+          if (Array.isArray(existing) && existing.length > 0) {
+            const id = (existing[0] as any).id
+            const body = { ...this._payload, id }
+            const data = await request<unknown>(endpoint, { method: 'PATCH', body: JSON.stringify(body) })
+            return { data, error: null }
+          }
+        }
+        const data = await request<unknown>(endpoint, { method: 'POST', body: JSON.stringify(this._payload) })
+        return { data, error: null }
       } catch (e) {
         return { data: null, error: { message: (e as Error).message } }
       }

@@ -138,10 +138,15 @@ export default function DigitalInvoice() {
         // 4. Fallback to advance_orders table if referenced by deposit_id or invoice_number
         if (!row) {
           try {
+            const orClauses: string[] = []
+            candidates.forEach(c => {
+              orClauses.push(`invoice_number.eq.${c}`)
+              orClauses.push(`deposit_id.eq.${c}`)
+            })
             const { data: advData } = await supabase
               .from('advance_orders')
               .select('*')
-              .or(`invoice_number.in.(${candidates.map(c => `"${c}"`).join(',')}),deposit_id.in.(${candidates.map(c => `"${c}"`).join(',')})`)
+              .or(orClauses.join(','))
               .limit(1)
 
             if (advData && advData[0]) {

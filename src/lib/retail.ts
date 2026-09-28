@@ -57,9 +57,11 @@ const INR_CURRENCY = new Intl.NumberFormat('en-IN', {
 
 const clampTo = (value: number, min = 0) => (value < min ? min : value)
 
-export const roundTo = (value: number, places = 2) => {
+export const roundTo = (value: number | string, places = 2) => {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return 0
   const factor = 10 ** places
-  return Math.round((value + Number.EPSILON) * factor) / factor
+  return Math.round((num + Number.EPSILON) * factor) / factor
 }
 
 export const toNumber = (value: unknown, fallback = 0) => {
