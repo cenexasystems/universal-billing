@@ -102,8 +102,19 @@ export const barcodeService = {
 
     if (data) {
       // Cast array-joined relations if Supabase returned them as single objects
-      const p = Array.isArray(data.product) ? data.product[0] : data.product
-      const v = Array.isArray(data.variant) ? data.variant[0] : data.variant
+      let p = Array.isArray(data.product) ? data.product[0] : data.product
+      let v = Array.isArray(data.variant) ? data.variant[0] : data.variant
+      
+      // Fallback for custom Neon backend which ignores nested selects (joins)
+      if (!p && data.product_id) {
+        const { data: prodData } = await supabase.from('products').select('*').eq('id', data.product_id).maybeSingle()
+        if (prodData) p = prodData
+      }
+      if (!v && data.variant_id) {
+        const { data: varData } = await supabase.from('product_variants').select('*').eq('id', data.variant_id).maybeSingle()
+        if (varData) v = varData
+      }
+
       return {
         ...data,
         product: p,
@@ -119,7 +130,11 @@ export const barcodeService = {
       .maybeSingle()
 
     if (varData) {
-      const p = Array.isArray(varData.product) ? varData.product[0] : varData.product
+      let p = Array.isArray(varData.product) ? varData.product[0] : varData.product
+      if (!p && varData.product_id) {
+        const { data: prodData } = await supabase.from('products').select('*').eq('id', varData.product_id).maybeSingle()
+        if (prodData) p = prodData
+      }
       return {
         id: `var-${varData.id}`,
         barcode_value: cleanValue,
@@ -197,10 +212,24 @@ export const barcodeService = {
       throw error
     }
 
-    const records = (data || []).map((row) => ({
-      ...row,
-      product: Array.isArray(row.product) ? row.product[0] : row.product,
-      variant: Array.isArray(row.variant) ? row.variant[0] : row.variant
+    const records = await Promise.all((data || []).map(async (row) => {
+      let p = Array.isArray(row.product) ? row.product[0] : row.product
+      let v = Array.isArray(row.variant) ? row.variant[0] : row.variant
+      
+      if (!p && row.product_id) {
+        const { data: prodData } = await supabase.from('products').select('*').eq('id', row.product_id).maybeSingle()
+        if (prodData) p = prodData
+      }
+      if (!v && row.variant_id) {
+        const { data: varData } = await supabase.from('product_variants').select('*').eq('id', row.variant_id).maybeSingle()
+        if (varData) v = varData
+      }
+
+      return {
+        ...row,
+        product: p,
+        variant: v
+      }
     })) as BarcodeRegistryRecord[]
 
     return { records, total: count || 0 }
