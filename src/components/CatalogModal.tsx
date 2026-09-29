@@ -84,7 +84,8 @@ export default function CatalogModal({ isOpen, onClose, onAdd }: CatalogModalPro
 
   const startEdit = (p: Product) => {
     setEditingProduct(p)
-    setEditForm({ name: p.name, category: p.category, price: String(p.price) })
+    const effectivePrice = (p.offerPrice && Number(p.offerPrice) > 0) ? p.offerPrice : p.price
+    setEditForm({ name: p.name, category: p.category, price: String(effectivePrice) })
     setEditError('')
   }
 
@@ -97,6 +98,8 @@ export default function CatalogModal({ isOpen, onClose, onAdd }: CatalogModalPro
     e.preventDefault()
     if (!editingProduct) return
     if (!editForm.name.trim()) { setEditError('Name is required'); return }
+    if (isNaN(Number(editForm.price)) || Number(editForm.price) < 0) { setEditError('Enter a valid price'); return }
+    if (isNaN(Number(editForm.price)) || Number(editForm.price) < 0) { setEditError('Enter a valid price'); return }
     setEditLoading(true)
     setEditError('')
     const selectedCategory = allCategoryOptions.find(c => c.name_en.trim().toLowerCase() === editForm.category.trim().toLowerCase())
@@ -107,6 +110,7 @@ export default function CatalogModal({ isOpen, onClose, onAdd }: CatalogModalPro
       category: categoryName,
       category_id: selectedCategory.id,
       price: Number(editForm.price),
+      offer_price: Number(editForm.price),
     }).eq('id', editingProduct.id)
     if (error) { setEditError(error.message); setEditLoading(false); return }
     await fetchProducts(true)
