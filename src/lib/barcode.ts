@@ -21,10 +21,15 @@ export const DEFAULT_LABEL_SIZES: LabelSizeConfig[] = [
   { id: '2_50x25', name: '50 × 38 mm (Retail Standard)', labelsPerRow: 1, widthMm: 50, heightMm: 38, horizontalGapMm: 0 },
   { id: '1_60x40', name: '60 × 40 mm (Shipping / Product)', labelsPerRow: 1, widthMm: 60, heightMm: 40, horizontalGapMm: 0 },
   { id: '1_100x50', name: '100 × 50 mm (Large Carton / Box)', labelsPerRow: 1, widthMm: 100, heightMm: 50, horizontalGapMm: 0 },
-  // 2-up roll candidates — exact single-label size unconfirmed, test-print on scrap
-  // paper first and delete whichever one doesn't match your physical roll.
+  // 2-up roll candidates
   { id: '2up_50x25', name: '50 × 25 mm × 2 (2-Up Roll, Candidate A)', labelsPerRow: 2, widthMm: 50, heightMm: 25, horizontalGapMm: 2 },
   { id: '2up_50x30', name: '50 × 30 mm × 2 (2-Up Roll, Candidate B)', labelsPerRow: 2, widthMm: 50, heightMm: 30, horizontalGapMm: 2 },
+  // 3-up roll candidates
+  { id: '3up_33x25', name: '33 × 25 mm × 3 (3-Up Roll, Candidate A)', labelsPerRow: 3, widthMm: 33, heightMm: 25, horizontalGapMm: 2 },
+  { id: '3up_38x25', name: '38 × 25 mm × 3 (3-Up Roll, Candidate B)', labelsPerRow: 3, widthMm: 38, heightMm: 25, horizontalGapMm: 2 },
+  // 4-up roll candidates
+  { id: '4up_25x25', name: '25 × 25 mm × 4 (4-Up Roll, Candidate A)', labelsPerRow: 4, widthMm: 25, heightMm: 25, horizontalGapMm: 2 },
+  { id: '4up_30x20', name: '30 × 20 mm × 4 (4-Up Roll, Candidate B)', labelsPerRow: 4, widthMm: 30, heightMm: 20, horizontalGapMm: 2 },
 ]
 
 export interface BarcodeSettings {
