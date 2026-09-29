@@ -54,6 +54,7 @@ export default async function handler(req, res) {
     
     if (req.method === 'PATCH') {
       const { id, ...updates } = req.body;
+        delete updates.updated_at;
       if (!id) return res.status(400).json({ error: 'ID required' });
       
       const keys = Object.keys(updates);

@@ -37,7 +37,7 @@ export async function updateItemPrice(params: {
   if (params.entityType === 'variant') {
     const updatePayload: Record<string, unknown> = {
       price: params.newPrice,
-      updated_at: new Date().toISOString(),
+      
     }
     if (params.newCostPrice !== undefined && params.newCostPrice >= 0) {
       updatePayload.purchase_price = params.newCostPrice
@@ -48,10 +48,10 @@ export async function updateItemPrice(params: {
       .eq('id', params.id)
     if (error) throw error
   } else {
-    const updatePayload: Record<string, unknown> = {
-      price: params.newPrice,
-      updated_at: new Date().toISOString(),
-    }
+      const updatePayload: Record<string, unknown> = {
+        price: params.newPrice,
+        offer_price: params.newPrice,
+      }
     if (params.newCostPrice !== undefined && params.newCostPrice >= 0) {
       updatePayload.purchase_price = params.newCostPrice
     }
@@ -107,7 +107,7 @@ export async function getOrCreateUnregisteredProduct(
     if (Number(existingProd.price) !== Number(price)) {
       await supabase
         .from('products')
-        .update({ price: Number(price), updated_at: new Date().toISOString() })
+        .update({ price: Number(price), offer_price: Number(price) })
         .eq('id', existingProd.id)
     }
     return {

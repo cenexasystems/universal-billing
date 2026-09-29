@@ -114,7 +114,7 @@ export default async function handler(req, res) {
       const { id, ...rawUpdates } = req.body;
 
       // Generated/computed columns that must never be written to directly
-      const GENERATED_COLS = new Set(['remaining_balance']);
+      const GENERATED_COLS = new Set(['remaining_balance', 'updated_at']);
       const updates = Object.fromEntries(
         Object.entries(rawUpdates).filter(([k]) => !GENERATED_COLS.has(k))
       );
