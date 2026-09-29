@@ -4518,9 +4518,10 @@ export default function Dashboard() {
           <ExpensesView />
         )}
         </div>
-        {/* Footer */}
-        <div className="shrink-0 border-t border-gray-100 bg-white/80 py-2 text-center text-[12px] font-semibold text-[#7A8A78] tracking-wide print:hidden">
-          Powered by Cenexa Systems © 2026
+           {/* Footer - inside scroll area so visible on mobile */}
+          <div className="mt-6 border-t border-gray-100 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] pt-3 text-center text-[12px] font-semibold text-[#7A8A78] tracking-wide print:hidden">
+            Powered by Cenexa Systems © 2026
+          </div>
         </div>
       </main>
 
