@@ -23,6 +23,9 @@ type CreateOrderInput = {
   splitDetails?: Record<string, unknown>
   totalGst?: number
   gstEnabled?: boolean
+  remarks?: string
+  referenceNumber?: string
+  billingDate?: string
 }
 
 type CreatedOrder = {
@@ -60,6 +63,9 @@ export const createOrderWithStock = async (input: CreateOrderInput): Promise<Cre
   const gstEnabled      = Boolean(input.gstEnabled)
   const paymentMethod   = input.paymentMethod || 'cash'
   const splitDetails    = input.splitDetails || {}
+  const remarks         = input.remarks?.trim() || null
+  const referenceNumber = input.referenceNumber?.trim() || null
+  const billingDate     = input.billingDate || null
 
   const rpcPayload = {
     p_customer_name:          customerName,
@@ -81,6 +87,9 @@ export const createOrderWithStock = async (input: CreateOrderInput): Promise<Cre
     p_gst_enabled:            gstEnabled,
     p_payment_method:         paymentMethod,
     p_split_details:          splitDetails,
+    p_remarks:                remarks,
+    p_reference_number:       referenceNumber,
+    p_billing_date:           billingDate,
   }
 
   // 1. Try complete_pos_sale_with_inventory (inventory-aware transaction with atomic stock checks & movements ledger)

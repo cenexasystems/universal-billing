@@ -228,7 +228,14 @@ export default function CatalogModal({ isOpen, onClose, onAdd }: CatalogModalPro
                       </div>
                       <div className="pt-2 border-t border-[#E5E7EB]/40 flex items-center justify-between gap-1.5">
                         <div onClick={() => onAdd(product)} className="cursor-pointer flex flex-col min-w-0">
-                          <span className="text-[14px] font-black text-[#111111] tabular-nums">₹{product.price}</span>
+                          {product.offerPrice && Number(product.offerPrice) > 0 && Number(product.offerPrice) !== Number(product.price) ? (
+  <div className="flex items-baseline gap-1.5 flex-wrap">
+    <span className="text-[14px] font-black text-[#111111] tabular-nums">₹{product.offerPrice}</span>
+    <span className="text-[10px] font-bold text-gray-400 line-through tabular-nums">₹{product.price}</span>
+  </div>
+) : (
+  <span className="text-[14px] font-black text-[#111111] tabular-nums">₹{product.price}</span>
+)}
                           <span className="text-[9px] font-bold text-[#374151] uppercase tracking-wider bg-[#F9FAFB] px-1.5 py-0.5 rounded border border-[#E5E7EB]/40 truncate max-w-[80px]">
                             {product.category}
                           </span>

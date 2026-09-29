@@ -109,7 +109,7 @@ export const Invoice: React.FC<InvoiceProps> = ({
             <span style={{ fontSize: 10, fontWeight: 700, color: '#666', textTransform: 'uppercase' }}>Status</span>
             <span
               style={{
-                display: 'inline-block', padding: '2px 8px', borderRadius: 99,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '4px 10px', borderRadius: 99, lineHeight: 1,
                 background: statusColor + '18', color: statusColor,
                 fontSize: 9, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', border: `1px solid ${statusColor}40`
               }}

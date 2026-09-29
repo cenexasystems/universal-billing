@@ -827,8 +827,11 @@ export default function Pos(props: PosProps = {}) {
         couponPercentage: appliedCoupon?.percentage,
         totalGst,
         gstEnabled: billGstEnabled,
-        paymentMethod: paymentMode
-      })
+        paymentMethod: paymentMode,
+          remarks: remarks.trim() || undefined,
+          referenceNumber: referenceNumber.trim() || undefined,
+          billingDate: billingDate.trim() ? new Date(billingDate).toISOString() : undefined,
+        })
 
       // ── CRITICAL: immediately fix totals in DB, independent of PDF upload ──
       // The RPC may store an incorrect total if items JSONB parsing differs.
