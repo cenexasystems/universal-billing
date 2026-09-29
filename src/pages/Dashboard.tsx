@@ -551,7 +551,7 @@ export default function Dashboard() {
           is_manual: (row as Record<string,unknown>).is_manual === true || (row as Record<string,unknown>).source === 'manual',
         })))
 
-    const productCostLookup = new Map(products.map(p => [String(p.name || '').trim().toLowerCase(), Number((p as Record<string,unknown>).costPrice || (p as Record<string,unknown>).cost_price || 0)]))
+    const productCostLookup = new Map(products.map(p => [String(p.name || '').trim().toLowerCase(), Number(p.purchasePrice || (p as Record<string,unknown>).costPrice || (p as Record<string,unknown>).cost_price || 0)]))
       const productMap    = new Map<string, { name: string; variant: string; qty: number; revenue: number; billCount: number; costPrice: number }>()
     const productOrders = new Map<string, Set<string>>()
     const categoryMap   = new Map<string, { name: string; qty: number; revenue: number }>()
