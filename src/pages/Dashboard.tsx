@@ -551,7 +551,8 @@ export default function Dashboard() {
           is_manual: (row as Record<string,unknown>).is_manual === true || (row as Record<string,unknown>).source === 'manual',
         })))
 
-    const productMap    = new Map<string, { name: string; variant: string; qty: number; revenue: number; billCount: number }>()
+    const productCostLookup = new Map(products.map(p => [String(p.name || '').trim().toLowerCase(), Number((p as Record<string,unknown>).costPrice || (p as Record<string,unknown>).cost_price || 0)]))
+      const productMap    = new Map<string, { name: string; variant: string; qty: number; revenue: number; billCount: number; costPrice: number }>()
     const productOrders = new Map<string, Set<string>>()
     const categoryMap   = new Map<string, { name: string; qty: number; revenue: number }>()
     const prodCatLookup = new Map(products.map(p => [String(p.name || '').trim().toLowerCase(), p.category || 'Uncategorized']))
@@ -569,7 +570,8 @@ export default function Dashboard() {
       const mainName   = dashIdx > 0 ? rawKey.slice(0, dashIdx) : rawKey
       const variantName = dashIdx > 0 ? rawKey.slice(dashIdx + 3) : ''
 
-      const pc = productMap.get(rawKey) || { name: mainName, variant: variantName, qty: 0, revenue: 0, billCount: 0 }
+      const unitCost = productCostLookup.get(mainName.toLowerCase()) || 0
+      const pc = productMap.get(rawKey) || { name: mainName, variant: variantName, qty: 0, revenue: 0, billCount: 0, costPrice: unitCost }
       pc.qty += qty; pc.revenue += rev; productMap.set(rawKey, pc)
 
       if (!productOrders.has(rawKey)) productOrders.set(rawKey, new Set())
@@ -2868,7 +2870,9 @@ export default function Dashboard() {
                               <th className="px-4 py-2.5 font-black">Qty Sold</th>
                               <th className="px-4 py-2.5 font-black">Revenue</th>
                               <th className="px-4 py-2.5 font-black">Bills</th>
-                              <th className="px-4 py-2.5 font-black">Avg Revenue/Bill</th>
+                              <th className="px-4 py-2.5 font-black">Cost/Unit</th>
+                                <th className="px-4 py-2.5 font-black text-emerald-700">Profit</th>
+                                <th className="px-4 py-2.5 font-black">Avg Revenue/Bill</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[#E5E7EB]/20">
@@ -2880,6 +2884,10 @@ export default function Dashboard() {
                                 <td className="px-4 py-2 font-bold">{Math.round(p.qty)}</td>
                                 <td className="px-4 py-2 font-bold text-emerald-700">{formatCurrency(p.revenue)}</td>
                                 <td className="px-4 py-2 text-[#374151]">{p.billCount}</td>
+                                <td className="px-4 py-2 text-[#6B7280]">{p.costPrice > 0 ? formatCurrency(p.costPrice) : '-'}</td>
+                                <td className={`px-4 py-2 font-bold ${p.costPrice > 0 ? ((p.revenue - p.costPrice * p.qty) >= 0 ? 'text-emerald-700' : 'text-red-600') : 'text-gray-400'}`}>
+                                    {p.costPrice > 0 ? formatCurrency(p.revenue - p.costPrice * p.qty) : '-'}
+                                </td>
                                 <td className="px-4 py-2 font-bold text-[#111111]">{formatCurrency(p.billCount > 0 ? p.revenue / p.billCount : 0)}</td>
                               </tr>
                             ))}

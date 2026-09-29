@@ -49,7 +49,6 @@ export const ExpensesView: React.FC = () => {
   const [toDate, setToDate] = useState('')
   const [activePreset, setActivePreset] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all')
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all')
-  const [selectedPaymentMode, setSelectedPaymentMode] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
 
@@ -100,16 +99,12 @@ export const ExpensesView: React.FC = () => {
     let count = 0
     if (selectedCategoryId !== 'all') count++
     if (activePreset !== 'all') count++
-    if (selectedPaymentMode !== 'all') count++
     return count
-  }, [selectedCategoryId, activePreset, selectedPaymentMode])
+  }, [selectedCategoryId, activePreset])
 
   // Filter expenses list by search query and payment mode
   const filteredExpenses = useMemo(() => {
     let list = expenses
-    if (selectedPaymentMode !== 'all') {
-      list = list.filter((e) => e.payment_mode?.toLowerCase() === selectedPaymentMode.toLowerCase())
-    }
     if (!searchQuery.trim()) return list
     const q = searchQuery.toLowerCase().trim()
     return list.filter(
@@ -120,7 +115,7 @@ export const ExpensesView: React.FC = () => {
         e.recorded_by_name?.toLowerCase().includes(q) ||
         String(e.amount).includes(q)
     )
-  }, [expenses, searchQuery, selectedPaymentMode])
+  }, [expenses, searchQuery])
 
   // Handle Preset Clicks (Synchronizes FROM and TO dates)
   const applyDatePreset = (preset: 'all' | 'today' | 'week' | 'month' | 'custom') => {
@@ -154,7 +149,6 @@ export const ExpensesView: React.FC = () => {
     setToDate('')
     setActivePreset('all')
     setSelectedCategoryId('all')
-    setSelectedPaymentMode('all')
     setSearchQuery('')
     setShowAdvancedFilters(false)
   }
@@ -452,27 +446,6 @@ export const ExpensesView: React.FC = () => {
                       <Calendar size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
                   </div>
-
-                  {/* Payment Mode */}
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">
-                      Payment Mode
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={selectedPaymentMode}
-                        onChange={(e) => setSelectedPaymentMode(e.target.value)}
-                        className="w-full h-10 appearance-none pl-3 pr-7 rounded-xl bg-[#F9FAFB] border border-gray-200 text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#D4AF37] cursor-pointer hover:bg-gray-100 transition-colors"
-                      >
-                        <option value="all">All Payment Modes</option>
-                        <option value="cash">Cash</option>
-                        <option value="upi">UPI / QR</option>
-                        <option value="card">Credit / Debit Card</option>
-                        <option value="bank_transfer">Bank Transfer / NetBanking</option>
-                      </select>
-                      <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
@@ -534,7 +507,7 @@ export const ExpensesView: React.FC = () => {
                     filteredExpenses.map((exp) => (
                       <tr key={exp.id} className="hover:bg-gray-50/70 transition-colors">
                         <td className="px-5 py-3.5 font-bold text-gray-900 whitespace-nowrap">
-                          {exp.expense_date}
+                          {exp.expense_date ? new Date(exp.expense_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
                         </td>
                         <td className="px-5 py-3.5">
                           <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold bg-[#FBFAF6] text-[#0A0A0A] border border-[#E8D399]">
