@@ -1757,7 +1757,7 @@ export default function Pos(props: PosProps = {}) {
             </div>
 
             {/* Action Buttons Fixed Footer */}
-            <div className="shrink-0 border-t border-gray-200 bg-white p-3 shadow-[0_-8px_20px_rgba(0,0,0,0.04)]">
+            <div className="shrink-0 border-t border-gray-200 bg-white p-3 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] lg:pb-3 shadow-[0_-8px_20px_rgba(0,0,0,0.04)]">
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <button
                   type="button"
