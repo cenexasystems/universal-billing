@@ -138,7 +138,7 @@ export default async function handler(req, res) {
       const { id } = req.body;
       
       // Some tables use soft delete (is_active)
-      if (['products', 'categories', 'product_variants', 'coupons', 'barcode_registry'].includes(table)) {
+      if (['products', 'product_variants', 'coupons', 'barcode_registry'].includes(table)) {
         await sql.unsafe(`UPDATE public.${table} SET is_active = false, updated_at = NOW() WHERE id = $1`, [id]);
       } else {
         await sql.unsafe(`DELETE FROM public.${table} WHERE id = $1`, [id]);

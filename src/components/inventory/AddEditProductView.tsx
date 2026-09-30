@@ -1232,8 +1232,8 @@ export const AddEditProductView: React.FC<{
                             step="0.01"
                             required
                             placeholder="0.00"
-                            value={v.price || ''}
-                            onChange={(e) => handleUpdateVariantRow(v.id, 'price', parseFloat(e.target.value) || 0)}
+                            value={v.price === 0 && !v.variantName ? '' : v.price}
+                            onChange={(e) => handleUpdateVariantRow(v.id, 'price', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                             className="w-full h-8 px-2.5 rounded-lg border border-gray-300 bg-white text-xs font-bold text-gray-900 outline-none focus:border-[#0A0A0A]"
                           />
                         </div>
@@ -1247,8 +1247,8 @@ export const AddEditProductView: React.FC<{
                             min="0"
                             step="0.01"
                             placeholder="0.00"
-                            value={v.costPrice || ''}
-                            onChange={(e) => handleUpdateVariantRow(v.id, 'costPrice', parseFloat(e.target.value) || 0)}
+                            value={v.costPrice === 0 && !v.variantName ? '' : v.costPrice}
+                            onChange={(e) => handleUpdateVariantRow(v.id, 'costPrice', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                             className="w-full h-8 px-2.5 rounded-lg border border-gray-300 bg-white text-xs font-bold text-gray-900 outline-none focus:border-[#0A0A0A]"
                           />
                         </div>

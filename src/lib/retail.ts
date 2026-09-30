@@ -349,21 +349,11 @@ export const formatCompactQuantity = (quantity: number, unitLabel: string) => {
 
 export const formatQuantityDisplay = (
   quantity: number,
-  unitLabel: string,
-  unitType: UnitType,
+  _unitLabel: string,
+  _unitType: UnitType,
 ) => {
-  const q = formatNumber(quantity)
-  const unit = normalizeUnitToken(unitLabel)
-
-  if (unitType === 'unit' && unit === 'piece') {
-    return `${q} ${Number(q) === 1 ? 'piece' : 'pieces'}`
-  }
-
-  if (unitType === 'bundle' && unit === 'bundle') {
-    return `${q} ${Number(q) === 1 ? 'bundle' : 'bundles'}`
-  }
-
-  return `${q} ${unit || DEFAULT_UNIT_LABEL[unitType]}`
+  // Return just the number — unit label is shown separately in order tables
+  return formatNumber(quantity)
 }
 
 // qty always means "how many packs/units" — always starts at 1.
