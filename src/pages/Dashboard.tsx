@@ -4525,7 +4525,8 @@ export default function Dashboard() {
       </main>
 
 
-      {invoicePreviewOrder && (() => {
+      {(() => {
+        if (!invoicePreviewOrder) return null;
         const preview = getOrderWhatsAppPreview(invoicePreviewOrder)
         if (!preview) return null
 
