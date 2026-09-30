@@ -188,6 +188,7 @@ export async function createAdvanceOrder(input: {
   customerName: string; phone: string; address: string; productName: string; category: string; description: string
   totalAmount: number; depositAmount: number; expectedDeliveryDate: string; remarks: string; referenceNumber: string
   paymentMethod: AdvancePaymentMethod; createdByName: string; products?: Array<Record<string, unknown>>
+  splitCash?: number; splitUpi?: number; splitCard?: number
 }): Promise<AdvanceOrder> {
   let createdOrder: AdvanceOrder | null = null
 
@@ -198,6 +199,7 @@ export async function createAdvanceOrder(input: {
         p_category: input.category, p_description: input.description, p_total_amount: input.totalAmount,
         p_deposit_amount: input.depositAmount, p_expected_delivery_date: input.expectedDeliveryDate, p_remarks: input.remarks,
         p_payment_method: input.paymentMethod, p_created_by_name: input.createdByName, p_products: input.products || [],
+        p_split_cash: input.splitCash || 0, p_split_upi: input.splitUpi || 0, p_split_card: input.splitCard || 0,
       })
       if (error) {
         console.error('[createAdvanceOrder] Supabase error:', error.message)

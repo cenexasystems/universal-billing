@@ -93,7 +93,8 @@ export default async function handler(req, res) {
           ${args.p_customer_name}, ${args.p_phone}, ${args.p_address}, ${args.p_product_name},
           ${args.p_category}, ${args.p_description}, ${args.p_total_amount},
           ${args.p_deposit_amount}, ${args.p_expected_delivery_date}, ${args.p_remarks||''},
-          ${args.p_payment_method}, ${args.p_created_by_name}, ${JSON.stringify(args.p_products||[])}::jsonb
+          ${args.p_payment_method}, ${args.p_created_by_name}, ${JSON.stringify(args.p_products||[])}::jsonb,
+          ${args.p_split_cash||0}, ${args.p_split_upi||0}, ${args.p_split_card||0}
         )) as data
       `;
       return res.status(200).json(result.data);
